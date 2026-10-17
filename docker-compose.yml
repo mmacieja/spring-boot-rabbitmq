@@ -1,0 +1,24 @@
+services:
+  rabbitmq:
+    image: 'rabbitmq:latest'
+    environment:
+      - 'RABBITMQ_DEFAULT_PASS=secret'
+      - 'RABBITMQ_DEFAULT_USER=myuser'
+    ports:
+      - '5672:5672'
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      - 'SPRING_RABBITMQ_HOST=rabbitmq'
+      - 'SPRING_RABBITMQ_PORT=5672'
+      - 'SPRING_RABBITMQ_USERNAME=myuser'
+      - 'SPRING_RABBITMQ_PASSWORD=secret'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
