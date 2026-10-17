@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-app:
+    name: Build Java application
+    runs-on: ubuntu-latest
+
+    services:
+      rabbitmq:
+        image: rabbitmq:latest
+        env:
+          RABBITMQ_DEFAULT_USER: myuser
+          RABBITMQ_DEFAULT_PASS: secret
+        ports:
+          - 5672:5672
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build application
+        run: mvn --batch-mode clean package
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: application-jar
+          path: target/*.jar
+
+  docker-build:
+    name: Build Docker image
+    needs: build-app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: application-jar
+          path: target
+
+      - name: Build Docker image
+        run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
+
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          exit-code: '0'
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
