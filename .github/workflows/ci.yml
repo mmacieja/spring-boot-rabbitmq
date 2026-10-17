@@ -11,6 +11,15 @@ jobs:
     name: Build Java application
     runs-on: ubuntu-latest
 
+    services:
+      rabbitmq:
+        image: rabbitmq:latest
+        env:
+          RABBITMQ_DEFAULT_USER: myuser
+          RABBITMQ_DEFAULT_PASS: secret
+        ports:
+          - 5672:5672
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
