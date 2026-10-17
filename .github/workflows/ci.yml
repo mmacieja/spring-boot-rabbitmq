@@ -39,3 +39,21 @@ jobs:
         with:
           name: application-jar
           path: target/*.jar
+
+  docker-build:
+    name: Build Docker image
+    needs: build-app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: application-jar
+          path: target
+
+      - name: Build Docker image
+        run: docker build -t spring-boot-rabbitmq:${{ github.sha }} .
